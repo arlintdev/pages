@@ -216,6 +216,11 @@ app.get('/api/me', (c) => {
   return c.json({
     id: u.id,
     email: u.email,
+    // Username is the kebab-case handle that appears in share URLs:
+    // /p/<username>/<slug>/<token>. Exposed here so the SPA can render
+    // accurate URL previews on cards without fudging from the email
+    // local-part.
+    username: u.username ?? null,
     scopes: u.scopes,
     auth_method: u.authMethod,
   })

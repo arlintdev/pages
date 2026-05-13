@@ -5,6 +5,7 @@ import { toValue } from 'vue'
 export type Me = {
   id: number
   email: string
+  username: string | null
   scopes: string[]
   auth_method: 'session' | 'token'
 }

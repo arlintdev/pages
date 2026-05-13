@@ -128,7 +128,7 @@
         <div class="foot">
           <div class="card-title">{{ p.title }}</div>
           <div class="card-slug mono">
-            <span class="muted">p.app/u/{{ me?.email?.split('@')[0] || 'you' }}/</span>{{ p.slug }}
+            <span class="muted">{{ slugHost }}/p/{{ usernameForPath }}/</span>{{ p.slug }}
           </div>
           <div class="card-meta">
             <VisChip :shared="p.shared" />
@@ -176,6 +176,33 @@ const { data: me } = useMe()
 
 const search = ref('')
 const copiedId = ref<number | null>(null)
+
+// Host shown in the card's URL hint. Pulls from window.location so the
+// preview reflects whatever host the user is on (pages.arlint.dev in
+// prod, localhost:5173 in dev, an ngrok URL when testing externally).
+// Falls back to a generic label on SSR / pre-render — never matters in
+// practice because this view is client-rendered.
+const slugHost = computed(() => {
+  if (typeof window === 'undefined') return 'pages'
+  return window.location.host
+})
+
+// Username slot in the URL. The backend backfills usernames on login
+// for every authenticated user, so this is almost always populated.
+// Defensive fallback: derive from the email's local part, mirroring the
+// server's pickUsername() so what we render here matches what the
+// server would have generated if it hadn't gotten around to it yet.
+const usernameForPath = computed(() => {
+  if (me.value?.username) return me.value.username
+  const local = me.value?.email?.split('@')[0] ?? ''
+  return (
+    local
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'you'
+  )
+})
 
 type TabId = 'all' | 'shared' | 'private'
 const activeTab = ref<TabId>('all')
