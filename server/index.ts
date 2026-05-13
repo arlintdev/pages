@@ -13,6 +13,8 @@ import {
   authorizationServerMetadataHandler,
   publicBaseUrl,
 } from './routes/oauth'
+// (Discovery handlers are mounted at the app root below — RFC 8414/9728
+// require the .well-known paths at the AS origin, not under /oauth.)
 import { authMiddleware, requireScope, requireSession, type AuthVars } from './auth'
 import { handleMCPRequest } from './mcp'
 import { loginHandler, callbackHandler, logoutHandler, oidcEnabled } from './oidc'

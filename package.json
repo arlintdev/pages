@@ -10,6 +10,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@arlintdev/mcp-oauth-bun": "github:arlintdev/mcp-oauth-bun",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "drizzle-orm": "^0.38.0",
     "hono": "^4.7.0",
