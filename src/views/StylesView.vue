@@ -1,73 +1,84 @@
 <template>
   <div class="view">
-    <header class="hdr">
-      <div>
+    <TopBar :crumbs="[{ label: 'Account' }, { label: 'Styles' }]">
+      <template #actions>
+        <button class="btn primary" @click="openEditor(null)">
+          <Plus :size="12" /> New style
+        </button>
+      </template>
+    </TopBar>
+
+    <div class="page-body">
+      <header class="page-hdr">
         <h1>Styles</h1>
-        <p class="sub">
-          Visual styles available to the MCP's <code>list_styles</code> tool.
-          Click a card to preview. Add your own to give agents extra options.
+        <p class="muted">
+          Visual styles available to the MCP's <span class="mono">list_styles</span>
+          tool. Click a card to preview. Add your own to give agents extra options.
         </p>
-      </div>
-      <button class="primary" @click="openEditor(null)">
-        <Plus :size="14" /> New style
-      </button>
-    </header>
+      </header>
 
-    <!-- User-authored styles, only shown when at least one exists. -->
-    <section v-if="customStyles && customStyles.length" class="section">
-      <h2>Your styles</h2>
-      <ul class="grid">
-        <li v-for="s in customStyles" :key="s.name">
-          <button class="card" @click="open(s.name, 'custom')">
-            <div class="thumb-wrap">
-              <iframe
-                class="thumb"
-                :src="`/api/custom-styles/${s.name}/preview?v=${encodeURIComponent(s.updated_at ?? '')}`"
-                loading="lazy"
-                scrolling="no"
-                tabindex="-1"
-                aria-hidden="true"
-              />
-              <div class="thumb-shield" />
-              <span class="src-badge custom">custom</span>
-            </div>
-            <div class="card-foot">
-              <div class="card-title">{{ s.name }}</div>
-              <div class="card-summary">{{ s.summary }}</div>
-            </div>
-          </button>
-        </li>
-      </ul>
-    </section>
+      <!-- User-authored styles, only shown when at least one exists. -->
+      <section v-if="customStyles && customStyles.length" class="section">
+        <div class="section-head">
+          <h2 class="uppercase-label">Your styles</h2>
+          <span class="mono dim">{{ customStyles.length }}</span>
+        </div>
+        <ul class="grid">
+          <li v-for="s in customStyles" :key="s.name">
+            <button class="card" @click="open(s.name, 'custom')">
+              <div class="thumb-wrap">
+                <iframe
+                  class="thumb"
+                  :src="`/api/custom-styles/${s.name}/preview?v=${encodeURIComponent(s.updated_at ?? '')}`"
+                  loading="lazy"
+                  scrolling="no"
+                  tabindex="-1"
+                  aria-hidden="true"
+                />
+                <div class="thumb-shield" />
+                <span class="src-badge">custom</span>
+              </div>
+              <div class="card-foot">
+                <div class="card-title mono">{{ s.name }}</div>
+                <div class="card-summary">{{ s.summary }}</div>
+              </div>
+            </button>
+          </li>
+        </ul>
+      </section>
 
-    <section class="section">
-      <h2 v-if="customStyles && customStyles.length">Built-in</h2>
-      <div v-if="isLoading" class="muted">Loading…</div>
-      <div v-else-if="!styles || styles.length === 0" class="muted">
-        No styles configured.
-      </div>
-      <ul v-else class="grid">
-        <li v-for="s in styles" :key="s.name">
-          <button class="card" @click="open(s.name, 'builtin')">
-            <div class="thumb-wrap">
-              <iframe
-                class="thumb"
-                :src="`/api/styles/${s.name}/preview`"
-                loading="lazy"
-                scrolling="no"
-                tabindex="-1"
-                aria-hidden="true"
-              />
-              <div class="thumb-shield" />
-            </div>
-            <div class="card-foot">
-              <div class="card-title">{{ s.name }}</div>
-              <div class="card-summary">{{ s.summary }}</div>
-            </div>
-          </button>
-        </li>
-      </ul>
-    </section>
+      <section class="section">
+        <div v-if="customStyles && customStyles.length" class="section-head">
+          <h2 class="uppercase-label">Built-in</h2>
+          <span v-if="styles" class="mono dim">{{ styles.length }}</span>
+        </div>
+        <div v-if="isLoading" class="muted">Loading…</div>
+        <div v-else-if="!styles || styles.length === 0" class="muted">
+          No styles configured.
+        </div>
+        <ul v-else class="grid">
+          <li v-for="s in styles" :key="s.name">
+            <button class="card" @click="open(s.name, 'builtin')">
+              <div class="thumb-wrap">
+                <iframe
+                  class="thumb"
+                  :src="`/api/styles/${s.name}/preview`"
+                  loading="lazy"
+                  scrolling="no"
+                  tabindex="-1"
+                  aria-hidden="true"
+                />
+                <div class="thumb-shield" />
+              </div>
+              <div class="card-foot">
+                <div class="card-title mono">{{ s.name }}</div>
+                <div class="card-summary">{{ s.summary }}</div>
+              </div>
+            </button>
+          </li>
+        </ul>
+      </section>
+    </div>
 
     <!-- Preview / detail modal — shows extra Edit + Delete buttons when
          the selected style is one of the user's customs. -->
@@ -75,22 +86,22 @@
       <Transition name="fade">
         <div
           v-if="selected"
-          class="modal-backdrop"
+          class="styles-modal-backdrop"
           role="dialog"
           aria-modal="true"
           @click.self="close"
         >
           <div class="modal" @click.stop>
             <header class="modal-head">
-              <div>
+              <div class="modal-head-text">
                 <div class="modal-name">
-                  {{ selected.name }}
-                  <span v-if="selected.source === 'custom'" class="src-pill custom">custom</span>
+                  <span class="mono">{{ selected.name }}</span>
+                  <span v-if="selected.source === 'custom'" class="src-pill">custom</span>
                 </div>
                 <p v-if="selectedWhen" class="muted modal-when">{{ selectedWhen }}</p>
               </div>
               <button class="iconbtn" title="Close" @click="close">
-                <X :size="16" />
+                <X :size="14" />
               </button>
             </header>
 
@@ -99,24 +110,25 @@
             </div>
 
             <div class="modal-actions">
-              <button class="ghost" @click="openPreviewTab">
-                <ExternalLink :size="14" /> Open preview
+              <button class="btn" @click="openPreviewTab">
+                <ExternalLink :size="12" /> Open preview
               </button>
-              <button class="ghost" @click="copyStarter">
-                <Check v-if="copied" :size="14" />
-                <Copy v-else :size="14" />
+              <button class="btn" @click="copyStarter">
+                <Check v-if="copied" :size="12" />
+                <Copy v-else :size="12" />
                 {{ copied ? 'Copied' : 'Copy starter HTML' }}
               </button>
               <template v-if="selected.source === 'custom'">
-                <button class="ghost" @click="editSelected">
-                  <Pencil :size="14" /> Edit
+                <button class="btn" @click="editSelected">
+                  <Pencil :size="12" /> Edit
                 </button>
-                <button class="ghost danger" @click="deleteSelected">
-                  <Trash2 :size="14" /> Delete
+                <button class="btn danger" @click="deleteSelected">
+                  <Trash2 :size="12" /> Delete
                 </button>
               </template>
-              <button class="primary" @click="useAsStarter">
-                <Plus :size="14" /> New page from this
+              <div class="modal-actions-spacer" />
+              <button class="btn primary" @click="useAsStarter">
+                <Plus :size="12" /> New page from this
               </button>
             </div>
           </div>
@@ -129,43 +141,48 @@
       <Transition name="fade">
         <div
           v-if="editorOpen"
-          class="modal-backdrop"
+          class="styles-modal-backdrop"
           role="dialog"
           aria-modal="true"
           @click.self="closeEditor"
         >
           <div class="modal editor-modal" @click.stop>
             <header class="modal-head">
-              <div>
+              <div class="modal-head-text">
                 <div class="modal-name">
-                  {{ editingOriginalName ? `Edit: ${editingOriginalName}` : 'New custom style' }}
+                  <span class="mono">
+                    {{ editingOriginalName ? `edit · ${editingOriginalName}` : 'new custom style' }}
+                  </span>
                 </div>
                 <p class="muted modal-when">
-                  A single HTML doc — used as both the preview and the starter shell
-                  agents drop content into. Include <code>&lt;!-- CONTENT --&gt;</code>
-                  if you want a specific slot; otherwise content gets appended before
-                  <code>&lt;/body&gt;</code>.
+                  A single HTML doc — used as both the preview and the starter
+                  shell agents drop content into. Include
+                  <span class="mono">&lt;!-- CONTENT --&gt;</span>
+                  if you want a specific slot; otherwise content gets appended
+                  before <span class="mono">&lt;/body&gt;</span>.
                 </p>
               </div>
               <button class="iconbtn" title="Close" @click="closeEditor">
-                <X :size="16" />
+                <X :size="14" />
               </button>
             </header>
 
             <div class="editor-body">
               <div class="editor-fields">
                 <label>
-                  <span class="lbl">Name</span>
+                  <span class="uppercase-label">Name</span>
                   <input
                     v-model.trim="form.name"
                     placeholder="my-style"
                     maxlength="40"
                     spellcheck="false"
                   />
-                  <span class="hint">Kebab-case (a-z, 0-9, single hyphens). Cannot match a built-in name.</span>
+                  <span class="hint">
+                    Kebab-case (a-z, 0-9, single hyphens). Cannot match a built-in name.
+                  </span>
                 </label>
                 <label>
-                  <span class="lbl">Summary</span>
+                  <span class="uppercase-label">Summary</span>
                   <input
                     v-model.trim="form.summary"
                     placeholder="A one-line description"
@@ -173,7 +190,7 @@
                   />
                 </label>
                 <label>
-                  <span class="lbl">When to use</span>
+                  <span class="uppercase-label">When to use</span>
                   <textarea
                     v-model.trim="form.when_to_use"
                     rows="3"
@@ -182,7 +199,7 @@
                   />
                 </label>
                 <label class="grow">
-                  <span class="lbl">HTML</span>
+                  <span class="uppercase-label">HTML</span>
                   <textarea
                     v-model="form.html"
                     class="code"
@@ -193,17 +210,15 @@
                 <div v-if="editorError" class="err">{{ editorError }}</div>
               </div>
               <div class="editor-preview">
-                <div class="lbl preview-lbl">Live preview</div>
-                <iframe
-                  :srcdoc="previewSrcdoc"
-                  aria-label="Live preview"
-                />
+                <div class="uppercase-label preview-lbl">Live preview</div>
+                <iframe :srcdoc="previewSrcdoc" aria-label="Live preview" />
               </div>
             </div>
 
             <div class="modal-actions editor-actions">
-              <button class="ghost" @click="closeEditor">Cancel</button>
-              <button class="primary" :disabled="saving" @click="saveStyle">
+              <div class="modal-actions-spacer" />
+              <button class="btn" @click="closeEditor">Cancel</button>
+              <button class="btn primary" :disabled="saving" @click="saveStyle">
                 {{ saving ? 'Saving…' : editingOriginalName ? 'Save changes' : 'Create style' }}
               </button>
             </div>
@@ -226,6 +241,7 @@ import {
   useCustomStyle,
 } from '@/composables/useApi'
 import { useConfirm } from '@/composables/useConfirm'
+import TopBar from '@/components/TopBar.vue'
 
 const router = useRouter()
 const queryClient = useQueryClient()
@@ -468,47 +484,50 @@ async function saveStyle() {
 
 <style scoped>
 .view {
-  padding: 32px 40px;
-  max-width: 1200px;
-}
-.hdr {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 24px;
+  flex-direction: column;
+  min-height: 100vh;
 }
-h1 {
-  margin: 0 0 4px 0;
+
+.page-body {
+  padding: 28px 36px;
+  max-width: 1280px;
+  width: 100%;
+}
+
+.page-hdr {
+  margin-bottom: 28px;
+}
+.page-hdr h1 {
+  margin: 0 0 6px;
   font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
 }
-h2 {
-  margin: 0 0 12px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+.page-hdr p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  max-width: 56ch;
 }
+
 .section {
   margin-top: 32px;
 }
 .section:first-of-type {
   margin-top: 0;
 }
-.sub {
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.section-head h2 {
   margin: 0;
-  color: var(--text-dim);
-  max-width: 56ch;
-}
-.sub code {
-  background: var(--bg-elev);
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-.muted {
-  color: var(--text-dim);
+  /* uppercase-label utility already styles the text — we just need to
+   * reset the heading's default font-weight so it doesn't compete. */
+  padding: 0;
 }
 
 .grid {
@@ -517,13 +536,14 @@ h2 {
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
+
 .card {
   display: flex;
   flex-direction: column;
   width: 100%;
-  background: var(--bg-elev);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
@@ -532,12 +552,12 @@ h2 {
   padding: 0;
   font: inherit;
   color: inherit;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color 0.12s ease;
 }
 .card:hover {
-  border-color: var(--accent);
-  transform: translateY(-1px);
+  border-color: var(--border-strong);
 }
+
 .thumb-wrap {
   position: relative;
   width: 100%;
@@ -562,127 +582,145 @@ h2 {
   inset: 0;
   z-index: 1;
 }
+
+/* "custom" pill in the corner of user-authored style cards. Uses the
+ * live-green to mirror the dashboard's Live badge so the user reads
+ * "this is mine" at the same glance speed. */
 .src-badge {
   position: absolute;
   top: 8px;
   left: 8px;
   z-index: 2;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 600;
-  background: rgba(11, 13, 16, 0.78);
-  color: var(--accent);
-  border: 1px solid rgba(167, 139, 250, 0.4);
-  backdrop-filter: blur(4px);
-}
-.card-foot {
-  padding: 12px 14px;
-}
-.card-title {
-  font-weight: 500;
-  margin-bottom: 4px;
-  text-transform: lowercase;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--accent);
-}
-.card-summary {
-  color: var(--text-dim);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-button.primary {
-  background: var(--accent);
-  color: #0b0d10;
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  padding: 8px 14px;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-family: inherit;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: #0a0a0a;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
 }
-button.primary:hover {
-  background: color-mix(in srgb, var(--accent) 85%, white);
+
+.card-foot {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-1);
+  letter-spacing: -0.005em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-summary {
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dim {
+  color: var(--text-3);
+}
+.muted {
+  color: var(--text-2);
 }
 </style>
 
 <!-- Unscoped block for the teleported modal so its styles still apply
-     after Vue lifts it out of this component's DOM subtree. -->
+     after Vue lifts it out of this component's DOM subtree. Classes are
+     prefixed with `.styles-modal-` to avoid clashing with other modals
+     in the app (Confirm uses `.confirm-*`). -->
 <style>
-.modal-backdrop {
+/* Modal backdrop — Linear/Vercel pattern: light tint + heavy blur, not a
+ * dark curtain. The card sits on a `--bg` surface with a generous shadow
+ * for depth. */
+.styles-modal-backdrop {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: color-mix(in srgb, var(--bg) 50%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
   display: grid;
   place-items: center;
   padding: 24px;
   overflow-y: auto;
 }
-.modal-backdrop .modal {
-  background: var(--bg-elev);
+.styles-modal-backdrop .modal {
+  background: var(--bg);
   border: 1px solid var(--border-strong);
-  border-radius: 14px;
+  border-radius: 12px;
   width: min(960px, 100%);
   max-height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.04),
+    0 12px 32px -8px rgba(0, 0, 0, 0.18),
+    0 32px 80px -16px rgba(0, 0, 0, 0.24);
 }
-.modal-backdrop .modal-head {
+
+.styles-modal-backdrop .modal-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  padding: 20px 22px 12px;
+  padding: 18px 22px 14px;
   border-bottom: 1px solid var(--border);
 }
-.modal-backdrop .modal-name {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--accent);
-  font-size: 18px;
-  margin-bottom: 4px;
+.styles-modal-backdrop .modal-head-text {
+  min-width: 0;
+}
+.styles-modal-backdrop .modal-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-1);
+  margin-bottom: 6px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.modal-backdrop .modal-when {
+.styles-modal-backdrop .modal-when {
   margin: 0;
   font-size: 13px;
-  line-height: 1.5;
-  max-width: 60ch;
+  line-height: 1.55;
+  max-width: 64ch;
 }
-.modal-backdrop .modal-when code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  background: var(--bg);
+.styles-modal-backdrop .modal-when .mono {
+  background: var(--surface-2);
   padding: 1px 5px;
   border-radius: 3px;
+  font-size: 11.5px;
+  color: var(--text-1);
 }
-.modal-backdrop .src-pill {
+.styles-modal-backdrop .src-pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 600;
-  padding: 2px 8px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
   border-radius: 999px;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  color: var(--text-1);
+  background: var(--chip);
+  border: 1px solid var(--border);
 }
-.modal-backdrop .src-pill.custom {
-  background: rgba(167, 139, 250, 0.2);
-  color: var(--accent);
-  border: 1px solid rgba(167, 139, 250, 0.4);
-}
-.modal-backdrop .modal-preview {
+
+.styles-modal-backdrop .modal-preview {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
@@ -690,157 +728,143 @@ button.primary:hover {
   border-bottom: 1px solid var(--border);
   overflow: hidden;
 }
-.modal-backdrop .modal-preview iframe {
+.styles-modal-backdrop .modal-preview iframe {
   width: 100%;
   height: 100%;
   border: 0;
   display: block;
 }
-.modal-backdrop .modal-actions {
+
+.styles-modal-backdrop .modal-actions {
   display: flex;
   gap: 8px;
   padding: 14px 22px;
+  background: var(--surface);
   flex-wrap: wrap;
+  align-items: center;
+}
+.styles-modal-backdrop .modal-actions-spacer {
+  flex: 1;
 }
 
 /* Editor-specific layout overrides */
-.modal-backdrop .editor-modal {
+.styles-modal-backdrop .editor-modal {
   width: min(1080px, 100%);
 }
-.modal-backdrop .editor-body {
+.styles-modal-backdrop .editor-body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0;
   flex: 1;
   min-height: 0;
 }
-.modal-backdrop .editor-fields {
+.styles-modal-backdrop .editor-fields {
   padding: 18px 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   overflow-y: auto;
 }
-.modal-backdrop .editor-fields label {
+.styles-modal-backdrop .editor-fields label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
-.modal-backdrop .editor-fields label.grow {
+.styles-modal-backdrop .editor-fields label.grow {
   flex: 1;
 }
-.modal-backdrop .lbl {
+.styles-modal-backdrop .hint {
   font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  font-weight: 500;
-}
-.modal-backdrop .hint {
-  font-size: 11px;
-  color: var(--text-mute);
+  color: var(--text-3);
   line-height: 1.4;
 }
-.modal-backdrop .editor-fields input,
-.modal-backdrop .editor-fields textarea {
+.styles-modal-backdrop .editor-fields input,
+.styles-modal-backdrop .editor-fields textarea {
   background: var(--bg);
-  color: var(--text);
+  color: var(--text-1);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 7px;
   padding: 8px 10px;
   font: inherit;
   font-size: 13px;
+  letter-spacing: -0.005em;
+  transition: border-color 0.12s ease;
 }
-.modal-backdrop .editor-fields textarea {
+.styles-modal-backdrop .editor-fields textarea {
   resize: vertical;
   min-height: 60px;
 }
-.modal-backdrop .editor-fields textarea.code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+.styles-modal-backdrop .editor-fields textarea.code {
+  font-family: var(--font-mono);
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.55;
   min-height: 280px;
   flex: 1;
 }
-.modal-backdrop .editor-fields input:focus,
-.modal-backdrop .editor-fields textarea:focus {
+.styles-modal-backdrop .editor-fields input:focus,
+.styles-modal-backdrop .editor-fields textarea:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--border-strong);
 }
-.modal-backdrop .editor-preview {
-  background: var(--bg);
+
+.styles-modal-backdrop .editor-preview {
+  background: var(--surface);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
-.modal-backdrop .preview-lbl {
+.styles-modal-backdrop .preview-lbl {
   padding: 12px 18px;
   border-bottom: 1px solid var(--border);
 }
-.modal-backdrop .editor-preview iframe {
+.styles-modal-backdrop .editor-preview iframe {
   flex: 1;
   width: 100%;
   border: 0;
   background: white;
   min-height: 380px;
 }
-.modal-backdrop .editor-actions {
+.styles-modal-backdrop .editor-actions {
   border-top: 1px solid var(--border);
   justify-content: flex-end;
 }
-.modal-backdrop .err {
-  background: rgba(248, 113, 113, 0.08);
-  border: 1px solid rgba(248, 113, 113, 0.3);
+
+.styles-modal-backdrop .err {
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-soft);
   color: var(--danger);
   padding: 8px 10px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
-.modal-backdrop button {
-  background: var(--bg-elev-2);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  padding: 8px 14px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-family: inherit;
-}
-.modal-backdrop button:hover {
-  background: var(--bg-hover);
-}
-.modal-backdrop button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.modal-backdrop button.primary {
-  background: var(--accent);
-  color: #0b0d10;
-  border-color: var(--accent);
-}
-.modal-backdrop button.ghost {
-  background: transparent;
-}
-.modal-backdrop button.ghost.danger {
+.styles-modal-backdrop .btn.danger {
+  /* Override theme.css default — solid danger color for delete in the
+   * modal action bar, matches ConfirmHost's destructive button. */
   color: var(--danger);
-  border-color: rgba(248, 113, 113, 0.3);
 }
-.modal-backdrop .iconbtn {
+.styles-modal-backdrop .btn.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger-soft);
+}
+
+.styles-modal-backdrop .iconbtn {
   background: transparent;
   border: none;
-  color: var(--text-dim);
-  padding: 4px;
+  color: var(--text-3);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  border-radius: 4px;
+  transition: background 0.12s ease, color 0.12s ease;
 }
-.modal-backdrop .iconbtn:hover {
-  background: var(--bg-hover);
-  color: var(--text);
+.styles-modal-backdrop .iconbtn:hover {
+  background: var(--hover);
+  color: var(--text-1);
 }
 
 .fade-enter-active,
@@ -862,10 +886,10 @@ button.primary:hover {
 }
 
 @media (max-width: 720px) {
-  .modal-backdrop .editor-body {
+  .styles-modal-backdrop .editor-body {
     grid-template-columns: 1fr;
   }
-  .modal-backdrop .editor-preview {
+  .styles-modal-backdrop .editor-preview {
     border-left: none;
     border-top: 1px solid var(--border);
   }

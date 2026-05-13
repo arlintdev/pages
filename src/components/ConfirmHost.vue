@@ -3,25 +3,26 @@
     <Transition name="fade">
       <div
         v-if="pending"
-        class="modal-backdrop"
+        class="confirm-backdrop"
         role="dialog"
         aria-modal="true"
         @click.self="answer(false)"
       >
-        <div class="modal" @click.stop>
-          <header class="modal-head">
+        <div class="confirm-card" @click.stop>
+          <header class="confirm-head">
             <h2>{{ pending.title || 'Are you sure?' }}</h2>
-            <button class="iconbtn" title="Close" @click="answer(false)">
-              <X :size="16" />
+            <button class="confirm-close" title="Close" @click="answer(false)">
+              <X :size="14" />
             </button>
           </header>
-          <p class="modal-body">{{ pending.message }}</p>
-          <div class="modal-actions">
-            <button class="ghost" @click="answer(false)" ref="cancelBtn">
+          <p class="confirm-body">{{ pending.message }}</p>
+          <div class="confirm-actions">
+            <button class="btn" ref="cancelBtn" @click="answer(false)">
               {{ pending.cancelLabel || 'Cancel' }}
             </button>
             <button
-              :class="['primary', { danger: pending.destructive }]"
+              class="btn"
+              :class="pending.destructive ? 'destructive' : 'primary'"
               @click="answer(true)"
             >
               {{ pending.confirmLabel || 'Confirm' }}
@@ -43,7 +44,8 @@ const { pending, answer } = _useConfirmHostState()
 const cancelBtn = ref<HTMLButtonElement | null>(null)
 
 // Body scroll-lock while open, autofocus the Cancel button (safer
-// default than the destructive button), and route Escape to "no".
+// default than the destructive button), and route Escape to "no",
+// Enter to "yes" — matches macOS Cmd+. and Cmd+. conventions.
 function onKey(e: KeyboardEvent) {
   if (!pending.value) return
   if (e.key === 'Escape') {
@@ -69,98 +71,101 @@ watch(pending, async (p) => {
 </script>
 
 <style>
-/* Unscoped so it applies to the Teleported markup. The class names are
-   prefixed (.confirm-*) elsewhere if we ever need to disambiguate from
-   the styles-view modal — here `.modal-*` is fine because Teleport puts
-   us in a sibling subtree and the styles-view modal isn't open at the
-   same time. */
-.modal-backdrop {
+/* Unscoped because Teleport lifts the markup out of the component
+ * subtree. Class names are prefixed with `confirm-` to avoid clashing
+ * with the StylesView modal which uses bare `.modal-*` names. */
+
+.confirm-backdrop {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* Light backdrop with a heavy blur — pulls focus to the card without
+   * the heavy "lights off" feel of the previous 62% black. Matches the
+   * Linear/Vercel modal pattern where the surface stays bright and the
+   * card has subtle elevation. */
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
   display: grid;
   place-items: center;
   padding: 24px;
 }
-.modal-backdrop .modal {
-  background: var(--bg-elev);
+
+.confirm-card {
+  width: min(420px, 100%);
+  background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: 12px;
-  width: min(440px, 100%);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
+  /* Stack two shadows: a small near-shadow for definition + a long
+   * distant shadow for depth. Matches the Vercel command palette feel. */
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.04),
+    0 12px 32px -8px rgba(0, 0, 0, 0.18),
+    0 32px 80px -16px rgba(0, 0, 0, 0.24);
 }
-.modal-backdrop .modal-head {
+
+.confirm-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 18px 20px 6px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 8px;
 }
-.modal-backdrop .modal-head h2 {
+.confirm-head h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-1);
+  letter-spacing: -0.01em;
 }
-.modal-backdrop .modal-body {
+.confirm-close {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.confirm-close:hover {
+  background: var(--hover);
+  color: var(--text-1);
+}
+
+.confirm-body {
   margin: 0;
   padding: 0 20px 20px;
-  color: var(--text-dim);
-  font-size: 14px;
-  line-height: 1.55;
+  color: var(--text-2);
+  font-size: 13.5px;
+  line-height: 1.6;
 }
-.modal-backdrop .modal-actions {
+
+.confirm-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   padding: 14px 20px 18px;
   border-top: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--surface);
 }
-.modal-backdrop .modal-actions button {
-  background: var(--bg-elev-2);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  padding: 8px 16px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 500;
-}
-.modal-backdrop .modal-actions button:hover {
-  background: var(--bg-hover);
-}
-.modal-backdrop .modal-actions button.ghost {
-  background: transparent;
-  color: var(--text-dim);
-}
-.modal-backdrop .modal-actions button.primary {
-  background: var(--accent);
-  color: #0b0d10;
-  border-color: var(--accent);
-}
-.modal-backdrop .modal-actions button.primary.danger {
+
+/* `.btn` classes from theme.css already handle the base / primary
+ * styling. We only need to override the destructive variant — solid red
+ * fill so it reads as a serious action even when scanning fast. */
+.confirm-actions .btn.destructive {
   background: var(--danger);
-  color: #0b0d10;
   border-color: var(--danger);
+  color: #ffffff;
 }
-.modal-backdrop .iconbtn {
-  background: transparent;
-  border: none;
-  color: var(--text-dim);
-  padding: 4px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.modal-backdrop .iconbtn:hover {
-  background: var(--bg-hover);
-  color: var(--text);
+.confirm-actions .btn.destructive:hover:not(:disabled) {
+  opacity: 0.9;
 }
 
 .fade-enter-active,
@@ -171,12 +176,12 @@ watch(pending, async (p) => {
 .fade-leave-to {
   opacity: 0;
 }
-.fade-enter-active .modal,
-.fade-leave-active .modal {
+.fade-enter-active .confirm-card,
+.fade-leave-active .confirm-card {
   transition: transform 0.18s ease, opacity 0.15s ease;
 }
-.fade-enter-from .modal,
-.fade-leave-to .modal {
+.fade-enter-from .confirm-card,
+.fade-leave-to .confirm-card {
   transform: translateY(8px) scale(0.98);
   opacity: 0;
 }

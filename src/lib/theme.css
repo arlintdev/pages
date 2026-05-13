@@ -39,18 +39,6 @@
   --font-mono: 'JetBrains Mono', 'Geist Mono', ui-monospace, 'SF Mono', Menlo,
     monospace;
   --font-serif: 'Instrument Serif', Georgia, serif;
-
-  /* legacy aliases — older views (StylesView, ConfirmHost) reference these
-   * token names. Keeping the bridge keeps those files visually consistent
-   * with the new design system without a full rewrite. */
-  --text: var(--text-1);
-  --text-dim: var(--text-2);
-  --text-mute: var(--text-3);
-  --bg-elev: var(--surface);
-  --bg-elev-2: var(--surface-2);
-  --bg-hover: var(--hover);
-  --success: var(--live);
-  --accent-soft: color-mix(in srgb, var(--text-1) 12%, transparent);
 }
 
 .dark {
