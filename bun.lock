@@ -28,7 +28,7 @@
     },
   },
   "packages": {
-    "@arlintdev/mcp-oauth-bun": ["@arlintdev/mcp-oauth-bun@github:arlintdev/mcp-oauth-bun#c6f4c3c", { "peerDependencies": { "hono": "^4.0.0", "zod": "^3.0.0 || ^4.0.0" } }, "arlintdev-mcp-oauth-bun-c6f4c3c", "sha512-QUc8UVu2cFiRkGejWKCOeX7ERIXeOh8FDamxcx7uaoPYAmYGJ+nsICZ/7hFd490wq6kTZfaiTezjdk7It+W3Gw=="],
+    "@arlintdev/mcp-oauth-bun": ["@arlintdev/mcp-oauth-bun@github:arlintdev/mcp-oauth-bun#3e91a2b", { "peerDependencies": { "hono": "^4.0.0", "zod": "^3.0.0 || ^4.0.0" } }, "arlintdev-mcp-oauth-bun-3e91a2b", "sha512-kFI3B/wUMRNcLMTE0LgiRajUZupIUnSOoGfO2Yq3m6e6gvNeLBgpdnBion48pCnjIRJdWMrCBrCZgkRuQ+zEQA=="],
 
     "@babel/helper-string-parser": ["@babel/helper-string-parser@7.27.1", "", {}, "sha512-qMlSxKbpRlAridDExk92nSobyDdpPijUq2DW6oDnUqd0iOGxmQjyqhMIihI9+zv4LPyZdRje2cavWPbCbWm3eA=="],
 
