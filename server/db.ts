@@ -85,6 +85,22 @@ try {
 } catch {
   /* present */
 }
+// Session table is wiped on every process start. Reasons:
+//
+//   1) Migration: tokens used to be stored as plaintext, now they're
+//      SHA-256 hashes — old rows would no longer match the lookup path
+//      anyway, so deleting them on the first hashed-cookie boot is
+//      necessary for correctness.
+//
+//   2) Posture: keeping the behaviour for every subsequent restart
+//      bounds the lifetime of any leaked session cookie to a single
+//      process uptime. Cookie value stays a 30-day cookie in the
+//      user's browser, but it goes stale the moment we restart — they
+//      sign in again. For a small homelab service this is a fine
+//      tradeoff; for a service with sticky users, replace this with a
+//      one-shot marker (e.g. a `meta` table row) so only the first
+//      hashed-cookie boot wipes the table.
+sqlite.exec(`DELETE FROM sessions`)
 // Backfill: users without a username yet, derive one from their email.
 {
   const taken = new Set(

@@ -17,6 +17,7 @@ import { pages, users } from '../schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import type { AuthVars } from '../auth'
 import { MAX_HTML_BYTES, MAX_HTML_LABEL } from '../limits'
+import { USER_HTML_HEADERS } from '../headers'
 
 export const pageRoutes = new Hono<{ Variables: AuthVars }>()
 
@@ -182,7 +183,7 @@ pageRoutes.get('/:id/raw', (c) => {
   if (!row) return c.text('not found', 404)
   return new Response(row.html, {
     headers: {
-      'content-type': 'text/html; charset=utf-8',
+      ...USER_HTML_HEADERS,
       // Short cache so rapid clicks between catalog and editor don't
       // re-fetch, but edits show up on a hard refresh.
       'cache-control': 'private, max-age=60',

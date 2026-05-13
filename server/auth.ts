@@ -161,9 +161,9 @@ async function lookupTokenUser(authHeader: string | undefined): Promise<AuthUser
   }
 }
 
-function lookupCookieUser(c: Context): AuthUser | null {
+async function lookupCookieUser(c: Context): Promise<AuthUser | null> {
   const token = getCookie(c, SESSION_COOKIE)
-  const u = resolveSessionUser(token)
+  const u = await resolveSessionUser(token)
   if (!u) return null
   return { ...u, scopes: ['*'], authMethod: 'session' }
 }
@@ -182,7 +182,7 @@ export function authMiddleware() {
       c.set('user', tokenUser)
       return next()
     }
-    const cookieUser = lookupCookieUser(c)
+    const cookieUser = await lookupCookieUser(c)
     if (cookieUser) {
       c.set('user', cookieUser)
       return next()

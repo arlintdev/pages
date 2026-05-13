@@ -18,9 +18,13 @@
 //   OIDC_CLIENT_ID       (required)
 //   OIDC_CLIENT_SECRET   (required for confidential clients; required here)
 //   OIDC_REDIRECT_URL    full https://.../auth/callback URL (required)
-//   OIDC_ALLOWED_EMAILS  comma-separated allowlist; empty = any verified email
-//   OIDC_SCOPES          space-separated, default "openid profile email"
-//   OIDC_COOKIE_SECURE   "1"/"true" to mark the cookie Secure (set in prod)
+//   OIDC_ALLOWED_EMAILS    comma-separated allowlist of authorized emails
+//   OIDC_ALLOW_OPEN_SIGNUP "1"/"true" to permit any IdP-verified email.
+//                          Required when OIDC_ALLOWED_EMAILS is empty —
+//                          fail-closed by default to avoid accidentally
+//                          deploying a fully open service.
+//   OIDC_SCOPES            space-separated, default "openid profile email"
+//   OIDC_COOKIE_SECURE     "1"/"true" to mark the cookie Secure (set in prod)
 
 import * as oidc from 'openid-client'
 import type { Context } from 'hono'
@@ -39,6 +43,12 @@ type OidcConfig = {
   client: oidc.Configuration
   redirectUrl: string
   allowedEmails: Set<string>
+  // True only when the operator explicitly opted in via
+  // OIDC_ALLOW_OPEN_SIGNUP=1. When false AND allowedEmails is empty, the
+  // callback refuses every login — fail-closed default. The previous
+  // shape ("empty allowlist = open signup") was too easy to deploy by
+  // accident in front of a permissive IdP policy.
+  allowOpenSignup: boolean
   cookieSecure: boolean
   scopes: string
 }
@@ -88,11 +98,26 @@ export async function getOidc(): Promise<OidcConfig | null> {
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean),
     )
+    const allowOpenSignup = ['1', 'true', 'yes'].includes(
+      (process.env.OIDC_ALLOW_OPEN_SIGNUP ?? '').toLowerCase().trim(),
+    )
+    if (allowed.size === 0 && !allowOpenSignup) {
+      console.warn(
+        'OIDC: no allowlist configured and OIDC_ALLOW_OPEN_SIGNUP is not set — every sign-in will be refused. Set OIDC_ALLOWED_EMAILS=foo@bar.com,... or OIDC_ALLOW_OPEN_SIGNUP=1.',
+      )
+    }
     const scopes = (process.env.OIDC_SCOPES ?? 'openid profile email').trim()
     const cookieSecure = ['1', 'true', 'yes'].includes(
       (process.env.OIDC_COOKIE_SECURE ?? '').toLowerCase().trim(),
     )
-    cached = { client, redirectUrl, allowedEmails: allowed, cookieSecure, scopes }
+    cached = {
+      client,
+      redirectUrl,
+      allowedEmails: allowed,
+      allowOpenSignup,
+      cookieSecure,
+      scopes,
+    }
     return cached
   } catch (err) {
     console.error('OIDC discovery failed:', err)
@@ -108,6 +133,16 @@ export function oidcEnabled(): boolean {
 function randomHex(bytes: number): string {
   const buf = crypto.getRandomValues(new Uint8Array(bytes))
   return [...buf].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+// SHA-256(cookie) → hex. Stored in sessions.token so a DB read does
+// not yield working cookies. Mirrors the api_tokens.token_hash pattern.
+async function hashCookie(raw: string): Promise<string> {
+  const data = new TextEncoder().encode(raw)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 // safeReturnPath validates a post-login `return=` URL. Only same-origin
@@ -203,13 +238,18 @@ export async function callbackHandler(c: Context): Promise<Response> {
   const emailRaw = (claims.email as string | undefined) ?? ''
   const email = emailRaw.trim().toLowerCase()
   if (!email) return c.text('id_token missing email claim', 401)
-  if (cfg.allowedEmails.size > 0 && !cfg.allowedEmails.has(email)) {
+  // Fail-closed: refuse the sign-in unless either (a) the email is on
+  // the explicit allowlist, or (b) the operator opted into open signup.
+  // The previous behaviour was "empty allowlist = open signup" which
+  // turned an unset env var into a fully open service.
+  const onAllowlist = cfg.allowedEmails.has(email)
+  if (!onAllowlist && !cfg.allowOpenSignup) {
     return c.text('email not authorized', 403)
   }
   const name = (claims.name as string | undefined) ?? ''
 
   const user = upsertOidcUser(subject, email, name)
-  const sessionToken = createSession(user.id)
+  const sessionToken = await createSession(user.id)
 
   setCookie(c, SESSION_COOKIE, sessionToken, {
     httpOnly: true,
@@ -296,22 +336,29 @@ function pickUsername(email: string): string {
   return candidate
 }
 
-function createSession(userId: number): string {
-  const token = randomHex(32)
+async function createSession(userId: number): Promise<string> {
+  // The cookie value the browser holds. Returned to the caller; never
+  // stored in plaintext on the server side — we persist its SHA-256.
+  const cookie = randomHex(32)
+  const hash = await hashCookie(cookie)
   const expires = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString()
-  db.insert(sessions).values({ token, user_id: userId, expires_at: expires }).run()
+  db.insert(sessions).values({ token: hash, user_id: userId, expires_at: expires }).run()
   // Best-effort GC of expired rows. SQLite text comparison works because
   // ISO 8601 sorts lexicographically.
   db.delete(sessions).where(lt(sessions.expires_at, new Date().toISOString())).run()
-  return token
+  return cookie
 }
 
 // resolveSessionUser is called from auth.ts to translate a cookie into a
 // User. Returns null for missing/expired/unknown tokens. Expired rows are
 // deleted lazily on lookup so the table stays trim even without the GC
 // pass in createSession.
-export function resolveSessionUser(token: string | undefined): User | null {
+//
+// Hashes the supplied cookie and looks up by hash — the DB never sees
+// the raw cookie value.
+export async function resolveSessionUser(token: string | undefined): Promise<User | null> {
   if (!token) return null
+  const hash = await hashCookie(token)
   const row = db
     .select({
       user: users,
@@ -320,7 +367,7 @@ export function resolveSessionUser(token: string | undefined): User | null {
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.user_id))
-    .where(eq(sessions.token, token))
+    .where(eq(sessions.token, hash))
     .get()
   if (!row) return null
   const expiresMs = Date.parse(row.expires)

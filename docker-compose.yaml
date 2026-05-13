@@ -12,6 +12,7 @@ services:
       OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
       OIDC_COOKIE_SECURE: "1"
       OIDC_ALLOWED_EMAILS: ${OIDC_ALLOWED_EMAILS:-}
+      OIDC_ALLOW_OPEN_SIGNUP: ${OIDC_ALLOW_OPEN_SIGNUP:-}
     volumes:
       - pages-data:/app/data
     networks:

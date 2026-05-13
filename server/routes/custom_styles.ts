@@ -21,6 +21,7 @@ import { customStyles } from '../schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import type { AuthVars } from '../auth'
 import { findStyle, STYLES } from '../styles'
+import { USER_HTML_HEADERS } from '../headers'
 
 export const customStyleRoutes = new Hono<{ Variables: AuthVars }>()
 
@@ -131,7 +132,7 @@ customStyleRoutes.get('/:name/preview', (c) => {
   if (!row) return c.text('not found', 404)
   return new Response(row.html, {
     headers: {
-      'content-type': 'text/html; charset=utf-8',
+      ...USER_HTML_HEADERS,
       // Same short cache as the built-in preview — bust by appending
       // ?v=updated_at on the client side when needed.
       'cache-control': 'private, max-age=60',

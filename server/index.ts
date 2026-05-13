@@ -11,6 +11,7 @@ import { authMiddleware, requireScope, requireSession, type AuthVars } from './a
 import { handleMCPRequest } from './mcp'
 import { loginHandler, callbackHandler, logoutHandler, oidcEnabled } from './oidc'
 import { STYLES, findStyle } from './styles'
+import { USER_HTML_HEADERS } from './headers'
 
 const app = new Hono<{ Variables: AuthVars }>()
 
@@ -66,14 +67,11 @@ app.get('/p/:username/:slug/:token', (c) => {
 
   return new Response(body, {
     headers: {
-      'content-type': 'text/html; charset=utf-8',
+      ...USER_HTML_HEADERS,
       // Don't let intermediaries cache a shared page — revocation needs
       // to take effect immediately. `private` is a belt-and-braces hint
       // for any in-between proxy not to share the cached response.
       'cache-control': 'no-store, private',
-      // The path now contains the share token; don't leak it via Referer
-      // when the page links/images out to third parties.
-      'referrer-policy': 'no-referrer',
     },
   })
 })
@@ -207,13 +205,16 @@ app.get('/api/styles/:name', (c) => {
 
 // Renders the example HTML directly as text/html so the /styles view can
 // preview it inside a sandboxed iframe. Lives under /api/* so it sits
-// behind auth like every other UI-facing route.
+// behind auth like every other UI-facing route. Built-in styles are
+// server-controlled so this is "safe HTML" in the trust sense, but we
+// still apply USER_HTML_HEADERS so the iframe behaviour is identical
+// across built-in and custom previews (the styles UI hosts both).
 app.get('/api/styles/:name/preview', (c) => {
   const s = findStyle(c.req.param('name'))
   if (!s) return c.text('not found', 404)
   return new Response(s.example_html, {
     headers: {
-      'content-type': 'text/html; charset=utf-8',
+      ...USER_HTML_HEADERS,
       // Styles only change on deploy — let the browser hold the preview
       // for a few minutes between catalog visits.
       'cache-control': 'private, max-age=300',
@@ -234,6 +235,20 @@ app.all('/p/*', (c) => c.text('Not found', 404))
 if (process.env.NODE_ENV === 'production') {
   app.use('/*', serveStatic({ root: './dist' }))
   app.get('/*', serveStatic({ path: './dist/index.html' }))
+}
+
+// Refuse to start an unsafe production server. In production, the
+// authMiddleware's dev fallback (which silently creates a `local@dev`
+// user with `*` scope) would mean any anonymous request gets admin-
+// level access — almost certainly not what the operator wanted. Better
+// to crash loudly than to listen and leak.
+if (process.env.NODE_ENV === 'production' && !oidcEnabled()) {
+  console.error(
+    'FATAL: NODE_ENV=production but OIDC is not configured. Set ' +
+      'OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, and ' +
+      'OIDC_REDIRECT_URL. See .env.example.',
+  )
+  process.exit(1)
 }
 
 const port = Number(process.env.PORT) || 3000
