@@ -1,5 +1,12 @@
 <template>
-  <div class="shell">
+  <!-- Fullscreen routes (e.g. /oauth/consent) skip the sidebar shell so
+       the user lands on a focused, dialog-like surface — important for
+       OAuth consent where any sidebar nav would be a footgun. -->
+  <template v-if="route.meta?.fullscreen">
+    <router-view />
+    <ConfirmHost />
+  </template>
+  <div v-else class="shell">
     <aside class="sidebar">
       <!-- Brand block -->
       <div class="brand">

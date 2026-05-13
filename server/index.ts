@@ -7,6 +7,12 @@ import { eq, and } from 'drizzle-orm'
 import { pageRoutes } from './routes/pages'
 import { tokenRoutes } from './routes/tokens'
 import { customStyleRoutes } from './routes/custom_styles'
+import {
+  oauthRoutes,
+  protectedResourceMetadataHandler,
+  authorizationServerMetadataHandler,
+  publicBaseUrl,
+} from './routes/oauth'
 import { authMiddleware, requireScope, requireSession, type AuthVars } from './auth'
 import { handleMCPRequest } from './mcp'
 import { loginHandler, callbackHandler, logoutHandler, oidcEnabled } from './oidc'
@@ -25,6 +31,25 @@ app.get('/auth/login', loginHandler)
 app.get('/auth/callback', callbackHandler)
 app.post('/auth/logout', logoutHandler)
 app.get('/auth/status', (c) => c.json({ oidc_enabled: oidcEnabled() }))
+
+// OAuth 2.1 authorization server for MCP clients.
+//
+// Discovery documents (RFC 8414 + RFC 9728) live under /.well-known —
+// these MUST be reachable without any auth or other gating so client
+// implementations can fetch them blind. The MCP spec also requires PRM
+// to be reachable at the resource path (i.e. /api/mcp's PRM lives at
+// /.well-known/oauth-protected-resource/api/mcp); some older clients
+// fall back to the root /.well-known/oauth-protected-resource, so we
+// serve the same document at both.
+app.get('/.well-known/oauth-authorization-server', authorizationServerMetadataHandler)
+app.get('/.well-known/oauth-protected-resource', protectedResourceMetadataHandler)
+app.get('/.well-known/oauth-protected-resource/api/mcp', protectedResourceMetadataHandler)
+
+// /oauth/* — the rest of the flow (DCR, authorize, token, revoke, +
+// consent helpers used by the SPA). The router itself is session-aware
+// where needed; we do NOT put it behind the api/* authMiddleware because
+// /oauth/authorize and /oauth/token are reached without app auth.
+app.route('/oauth', oauthRoutes)
 
 // Public share path — the only unauthenticated content route.
 //
@@ -143,6 +168,43 @@ function escapeAttr(s: string): string {
 function escapeText(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
+
+// MCP-specific 401 enrichment. The MCP spec requires that an
+// unauthenticated request to the resource come back with a
+// WWW-Authenticate header pointing at the Protected Resource Metadata
+// URL — that's how clients auto-discover the auth server without any
+// out-of-band config. We register this BEFORE the standard auth
+// middleware (which would otherwise return a bare JSON 401) so the
+// MCP-pathed routes get the right header set on the 401 path.
+//
+// We don't wrap successful responses — the auth middleware short-circuits
+// only on failure, so this middleware just intercepts that response and
+// stamps the header.
+app.use('/api/mcp', async (c, next) => {
+  await next()
+  if (c.res.status === 401) {
+    const prmUrl = `${publicBaseUrl()}/.well-known/oauth-protected-resource/api/mcp`
+    // Hono freezes c.res; clone with new headers attached.
+    const cloned = new Response(c.res.body, c.res)
+    cloned.headers.set(
+      'WWW-Authenticate',
+      `Bearer realm="pages", resource_metadata="${prmUrl}"`,
+    )
+    c.res = cloned
+  }
+})
+app.use('/api/mcp/*', async (c, next) => {
+  await next()
+  if (c.res.status === 401) {
+    const prmUrl = `${publicBaseUrl()}/.well-known/oauth-protected-resource/api/mcp`
+    const cloned = new Response(c.res.body, c.res)
+    cloned.headers.set(
+      'WWW-Authenticate',
+      `Bearer realm="pages", resource_metadata="${prmUrl}"`,
+    )
+    c.res = cloned
+  }
+})
 
 app.use('/api/*', authMiddleware())
 

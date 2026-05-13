@@ -64,6 +64,49 @@ sqlite.exec(`
   );
   CREATE INDEX IF NOT EXISTS custom_styles_user_idx ON custom_styles(user_id);
   CREATE UNIQUE INDEX IF NOT EXISTS custom_styles_user_name_unique ON custom_styles(user_id, name);
+  CREATE TABLE IF NOT EXISTS oauth_clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id TEXT NOT NULL UNIQUE,
+    client_secret_hash TEXT,
+    client_name TEXT NOT NULL,
+    redirect_uris TEXT NOT NULL,
+    grant_types TEXT NOT NULL,
+    token_endpoint_auth_method TEXT NOT NULL,
+    scope TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS oauth_clients_client_id_idx ON oauth_clients(client_id);
+  CREATE TABLE IF NOT EXISTS oauth_authorization_codes (
+    code_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_id TEXT NOT NULL,
+    redirect_uri TEXT NOT NULL,
+    code_challenge TEXT NOT NULL,
+    scopes TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    redeemed_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS oauth_access_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash TEXT NOT NULL UNIQUE,
+    refresh_token_hash TEXT UNIQUE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_id TEXT NOT NULL,
+    scopes TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    refresh_expires_at TEXT,
+    revoked_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS oauth_access_tokens_user_idx ON oauth_access_tokens(user_id);
+  CREATE TABLE IF NOT EXISTS oauth_pending_consent (
+    request_id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    params_json TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `)
 
 // Legacy tables from the multi-file-site era. Drop on startup; the data

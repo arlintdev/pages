@@ -20,6 +20,7 @@ import { users, apiTokens } from './schema'
 import type { User } from './schema'
 import { eq, and, isNull } from 'drizzle-orm'
 import { SESSION_COOKIE, resolveSessionUser, oidcEnabled } from './oidc'
+import { lookupOauthToken } from './routes/oauth'
 
 export type Scope =
   | 'pages:read'
@@ -125,6 +126,22 @@ function pickDevUsername(email: string): string {
 async function lookupTokenUser(authHeader: string | undefined): Promise<AuthUser | null> {
   const raw = extractBearer(authHeader)
   if (!raw) return null
+  // OAuth access tokens (issued via /oauth/token, RFC-style 3LO) carry an
+  // `oa_` prefix. Personal tokens (UI-minted) carry `pt_`. We try the
+  // matching path first so a malformed token doesn't pointlessly probe
+  // the other table.
+  if (raw.startsWith('oa_')) {
+    const hit = await lookupOauthToken(raw)
+    if (!hit) return null
+    const u = db.select().from(users).where(eq(users.id, hit.userId)).get()
+    if (!u) return null
+    return {
+      ...u,
+      scopes: hit.scopes,
+      authMethod: 'token',
+      tokenId: hit.tokenId,
+    }
+  }
   const hash = await hashToken(raw)
   const row = db
     .select({
