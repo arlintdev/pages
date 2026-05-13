@@ -1,0 +1,25 @@
+services:
+  pages:
+    build: .
+    container_name: pages
+    restart: unless-stopped
+    environment:
+      PUBLIC_BASE_URL: https://pages.arlint.dev
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OIDC_REDIRECT_URL: ${OIDC_REDIRECT_URL}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
+      OIDC_COOKIE_SECURE: "1"
+      OIDC_ALLOWED_EMAILS: ${OIDC_ALLOWED_EMAILS:-}
+    volumes:
+      - pages-data:/app/data
+    networks:
+      - traefik-proxy
+
+volumes:
+  pages-data:
+
+networks:
+  traefik-proxy:
+    external: true
